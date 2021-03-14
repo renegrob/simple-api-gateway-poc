@@ -1,0 +1,35 @@
+quarkus:
+#  smallrye-openapi:
+#    path: /api
+  swagger-ui:
+    always-include: true
+#    path: /api/docs
+#  smallrye-metrics:
+#    path: /monitoring/metrics
+  health:
+    openapi:
+      included: true
+  log:
+    min-level: DEBUG
+    level: DEBUG
+
+mp:
+  openapi:
+    filter: com.github.renegrob.proxy.OpenApiFilter
+
+proxy:
+  mappings:
+    - path: fruityvice/*
+      backend: https://fruityvice.com
+      description: Fruityvice Proxy
+    - path: dataatwork
+      backend: http://api.dataatwork.org
+      openapi: http://api.dataatwork.org/v1/spec/skills-api.json
+    - path: /apiguru
+      backend: http://api.apis.guru
+      openapi: http://api.apis.guru/v2/swagger.yaml
+      description: APIs.guru
+    - path: //digitalnz
+      backend: https://api.digitalnz.org
+      #openapi: https://api.swaggerhub.com/apis/DigitalNZ/Records/3
+      #openapi: http://api.swaggerhub.com/specs?specType=API
