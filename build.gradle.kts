@@ -25,6 +25,9 @@ dependencies {
     implementation("io.smallrye.reactive:smallrye-mutiny-vertx-web-client")
     implementation("io.quarkus:quarkus-smallrye-openapi")
     implementation("org.eclipse.microprofile.openapi:microprofile-openapi-api")
+
+    implementation("org.apache.commons:commons-lang3:3.12.0")
+
     testImplementation("io.quarkus:quarkus-junit5")
     testImplementation("io.rest-assured:rest-assured")
 }

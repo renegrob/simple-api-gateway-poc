@@ -15,14 +15,10 @@ public class MappingListConfig {
         public String backend;
         public String openapi;
         public String schema;
-        private String description;
+        public String description;
 
-        public String getDescription() {
-            return description != null ? description : URI.create(backend).getHost();
-        }
-
-        public void setDescription(String description) {
-            this.description = description;
+        public String getBackendHost() {
+            return backend != null ? URI.create(backend).getHost() : null;
         }
     }
 }

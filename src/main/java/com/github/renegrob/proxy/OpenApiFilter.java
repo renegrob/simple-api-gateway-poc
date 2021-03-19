@@ -10,27 +10,34 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.enterprise.inject.Instance;
 import javax.enterprise.inject.spi.CDI;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.eclipse.microprofile.openapi.OASFactory;
 import org.eclipse.microprofile.openapi.OASFilter;
+import org.eclipse.microprofile.openapi.models.Components;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.eclipse.microprofile.openapi.models.Operation;
 import org.eclipse.microprofile.openapi.models.PathItem;
+import org.eclipse.microprofile.openapi.models.examples.Example;
 import org.eclipse.microprofile.openapi.models.info.Info;
 import org.eclipse.microprofile.openapi.models.media.Schema;
 import org.eclipse.microprofile.openapi.models.parameters.Parameter;
+import org.eclipse.microprofile.openapi.models.responses.APIResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.github.renegrob.proxy.config.MappingListConfig;
 
+import io.quarkus.runtime.util.StringUtil;
 import io.smallrye.openapi.api.models.media.SchemaImpl;
 import io.smallrye.openapi.runtime.io.Format;
 import io.smallrye.openapi.runtime.io.OpenApiParser;
 
 import static io.vertx.core.http.impl.HttpUtils.normalizePath;
+import static org.apache.commons.lang3.ObjectUtils.firstNonNull;
 
 public class OpenApiFilter implements OASFilter {
 
@@ -69,12 +76,36 @@ public class OpenApiFilter implements OASFilter {
                     LOG.info("Parsing openapi:" + config.openapi);
                     try {
                         OpenAPI api = parseOpenApi(config.openapi);
+                        String keyPrefix = config.path + "|";
                         for (Map.Entry<String, PathItem> pathItemEntry : api.getPaths().entrySet()) {
                             final PathItem pathItem = pathItemEntry.getValue();
                             for (Map.Entry<PathItem.HttpMethod, Operation> operationEntry : pathItem.getOperations().entrySet()) {
-                                operationEntry.getValue().setTags(prefixTags(config.getDescription(), operationEntry.getValue().getTags()));
+                                final Operation operation = operationEntry.getValue();
+                                operation.setTags(prefixTags(firstNonNull(api.getInfo().getTitle(), config.description,
+                                        config.getBackendHost()), operation.getTags()));
+                                if (operation.getResponses() != null) {
+                                    for (Map.Entry<String, APIResponse> responseEntry : operation.getResponses().getAPIResponses().entrySet()) {
+                                        LOG.info(operation.getDescription() + " " + responseEntry.getValue() + ": " + responseEntry.getValue());
+                                    }
+                                    //operationEntry.getValue().getResponses().getAPIResponses().get("").ref()
+                                }
                             }
                             openAPI.getPaths().addPathItem(normalizePath(config.path) + pathItemEntry.getKey(), pathItem);
+                            if (pathItem.getRef() != null) {
+                                LOG.info("{}.getRef(): {}", pathItem, pathItem.getRef());
+                            }
+                        }
+                        if (api.getComponents() != null) {
+                            copyMapWithKeyPrefix(api.getComponents().getExamples(), keyPrefix,
+                                    openAPI.getComponents().getExamples());
+                            copyMapWithKeyPrefix(api.getComponents().getHeaders(), keyPrefix,
+                                    openAPI.getComponents().getHeaders());
+                            copyMapWithKeyPrefix(api.getComponents().getParameters(), keyPrefix,
+                                    openAPI.getComponents().getParameters());
+                            copyMapWithKeyPrefix(api.getComponents().getRequestBodies(), keyPrefix,
+                                    openAPI.getComponents().getRequestBodies());
+                            copyMapWithKeyPrefix(api.getComponents().getResponses(), keyPrefix,
+                                    openAPI.getComponents().getResponses());
                         }
                     } catch (IOException e) {
                         LOG.error("Error parsing openapi definition: " + config.openapi, e);
@@ -86,6 +117,15 @@ public class OpenApiFilter implements OASFilter {
                     openAPI.getPaths().addPathItem(normalizePath(config.path), createPathItem(config));
                 }
             }
+        }
+    }
+
+    private <T> void copyMapWithKeyPrefix(Map<String, T> source, String keyPrefix, Map<String, T> target) {
+        if (source == null || target == null) {
+            return;
+        }
+        for (Map.Entry<String, T> entry : source.entrySet()) {
+            target.put(keyPrefix + entry.getKey(), entry.getValue());
         }
     }
 
@@ -155,7 +195,7 @@ public class OpenApiFilter implements OASFilter {
     private PathItem createPathItem(MappingListConfig.MappingConfig config) {
         final PathItem pathItem = OASFactory.createPathItem();
         //pathItem.setRef("MyRef");
-        pathItem.GET(createOperation(List.of(config.getDescription())));
+        pathItem.GET(createOperation(List.of(firstNonNull(config.description, config.getBackendHost()))));
         return pathItem;
     }
 

@@ -37,3 +37,5 @@ proxy:
       description: Swagger Petstore
       backend: https://petstore.swagger.io/v2
       openapi: https://petstore.swagger.io/v2/swagger.json
+    - path: /gyphi
+      openapi: https://raw.githubusercontent.com/faragorn/open-api-specs/master/specs/giphy_api/1.0/index.yml
