@@ -1,18 +1,18 @@
 package com.github.renegrob.proxy;
 
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.regex.Pattern;
 import javax.enterprise.inject.Instance;
-import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.CDI;
-import javax.inject.Inject;
 
 import org.eclipse.microprofile.openapi.OASFactory;
 import org.eclipse.microprofile.openapi.OASFilter;
@@ -22,12 +22,12 @@ import org.eclipse.microprofile.openapi.models.PathItem;
 import org.eclipse.microprofile.openapi.models.info.Info;
 import org.eclipse.microprofile.openapi.models.media.Schema;
 import org.eclipse.microprofile.openapi.models.parameters.Parameter;
-import org.eclipse.microprofile.openapi.models.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.github.renegrob.proxy.config.MappingListConfig;
 
 import io.smallrye.openapi.api.models.media.SchemaImpl;
+import io.smallrye.openapi.runtime.io.Format;
 import io.smallrye.openapi.runtime.io.OpenApiParser;
 
 import static io.vertx.core.http.impl.HttpUtils.normalizePath;
@@ -36,6 +36,9 @@ public class OpenApiFilter implements OASFilter {
 
     private static final Logger LOG = LoggerFactory.getLogger(OpenApiFilter.class);
     public static final String DEFAULT_TAG = "default";
+
+    public static final Pattern URL_SCHEME = Pattern.compile("^([a-z][a-z0-9+\\-.]*):");
+
 
     @Override
     public void filterOpenAPI(OpenAPI openAPI) {
@@ -65,8 +68,7 @@ public class OpenApiFilter implements OASFilter {
                 if (config.openapi != null) {
                     LOG.info("Parsing openapi:" + config.openapi);
                     try {
-                        // TODO: detect Format and allow local files
-                        final OpenAPI api = OpenApiParser.parse(new URL(config.openapi));
+                        OpenAPI api = parseOpenApi(config.openapi);
                         for (Map.Entry<String, PathItem> pathItemEntry : api.getPaths().entrySet()) {
                             final PathItem pathItem = pathItemEntry.getValue();
                             for (Map.Entry<PathItem.HttpMethod, Operation> operationEntry : pathItem.getOperations().entrySet()) {
@@ -85,6 +87,51 @@ public class OpenApiFilter implements OASFilter {
                 }
             }
         }
+    }
+
+    private OpenAPI parseOpenApi(String openapi) throws IOException {
+        URL apiUrl = toUrl(openapi);
+        final Format format = detectOpenApiFormat(apiUrl);
+        if (format != null) {
+            return parseOpenApi(apiUrl, format);
+        }
+        try {
+            return parseOpenApi(apiUrl, Format.YAML);
+        } catch (IOException e) {
+            return parseOpenApi(apiUrl, Format.JSON);
+        }
+    }
+
+    private URL toUrl(String resource) throws MalformedURLException {
+        URL apiUrl;
+        if (URL_SCHEME.matcher(resource).find()) {
+            apiUrl = new URL(resource);
+        } else {
+            apiUrl = new File(resource).toURI().toURL();
+        }
+        return apiUrl;
+    }
+
+    private OpenAPI parseOpenApi(URL url, Format format) throws IOException {
+        try (InputStream stream = url.openStream()) {
+            return OpenApiParser.parse(stream, format);
+        }
+    }
+
+    private Format detectOpenApiFormat(URL url) {
+        String fileName = url.getFile();
+        int lidx = fileName.lastIndexOf(46);
+        if (lidx != -1 && lidx < fileName.length()) {
+            String ext = fileName.substring(lidx + 1);
+            boolean isJson = ext.equalsIgnoreCase("json");
+            boolean isYaml = ext.equalsIgnoreCase("yaml") || ext.equalsIgnoreCase("yml");
+            if (isJson) {
+                return Format.JSON;
+            } else if (isYaml) {
+                return Format.YAML;
+            }
+        }
+        return null;
     }
 
     private List<String> prefixTags(String prefix, List<String> tags) {

@@ -31,5 +31,9 @@ proxy:
       description: APIs.guru
     - path: //digitalnz
       backend: https://api.digitalnz.org
-      #openapi: https://api.swaggerhub.com/apis/DigitalNZ/Records/3
+      openapi: https://api.swaggerhub.com/apis/DigitalNZ/Records/3
       #openapi: http://api.swaggerhub.com/specs?specType=API
+    - path: /petstore
+      description: Swagger Petstore
+      backend: https://petstore.swagger.io/v2
+      openapi: https://petstore.swagger.io/v2/swagger.json
