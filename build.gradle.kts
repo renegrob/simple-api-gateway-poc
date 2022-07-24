@@ -18,6 +18,7 @@ dependencies {
     implementation("io.quarkus:quarkus-arc")
     implementation("io.quarkus:quarkus-config-yaml")
     implementation("io.quarkus:quarkus-vertx")
+    implementation("io.vertx:vertx-http-proxy")
 //    implementation("io.quarkus:quarkus-vertx-web")
     implementation("io.smallrye.reactive:mutiny-reactor")
 //    implementation("io.netty:netty-transport-native-epoll:*:linux-x86_64")
@@ -36,8 +37,9 @@ group = "com.github.renegrob"
 version = "1.0.0-SNAPSHOT"
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
 }
 
 tasks.withType<JavaCompile> {
